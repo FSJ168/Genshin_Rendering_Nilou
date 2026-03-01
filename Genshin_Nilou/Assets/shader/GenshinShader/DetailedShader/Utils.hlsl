@@ -152,4 +152,13 @@ float4 TransformViewToHClip(float3 positionVS){
     return mul(UNITY_MATRIX_P,float4(positionVS,1));
 }
 
+float3 DecodeNormalOct(float2 enc)
+{
+    float3 n = float3(enc.x, enc.y, 1.0 - abs(enc.x) - abs(enc.y));
+    float t = max(-n.z, 0.0);
+    n.x += (n.x > 0) ? -t : t;
+    n.y += (n.y > 0) ? -t : t;
+    return normalize(n);
+}
+
 #endif

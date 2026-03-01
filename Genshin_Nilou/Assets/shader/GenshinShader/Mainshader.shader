@@ -189,6 +189,7 @@ Shader "GenshinToon/MainShader"
         [KeywordEnum(Normal, Tangent, UV2)] _OutlineNormalChannel("Outline Normal Channel", Float) = 0
         // 开关：是否使用自定义描边颜色
         [Toggle(_OUTLINE_CUSTOM_COLOR_ON)] _UseCustomOutlineCol("Use Custom outline Color", Float) = 0
+        [Toggle(_OUTLINE_USE_SMOOTHNORMAL_ON)]_UseSmoothNormal("Use SmoothNormal",Float)=1
         // 默认描边颜色（未启用自定义时生效）
         _OutlineDefaultColor("Outline Default Color", Color) = (0.5, 0.5, 0.5, 1)
         // 自定义描边颜色（基础）
@@ -327,7 +328,7 @@ Shader "GenshinToon/MainShader"
             #pragma shader_feature_local_fragment _ _BACKFACEUV2_ON
             // 着色器特性：描边法线通道
             #pragma shader_feature_local _OUTLINENORMALCHANNEL_NORMAL _OUTLINENORMALCHANNEL_TANGENT _OUTLINENORMALCHANNEL_UV2
-
+            #pragma shader_feature_local _OUTLINE_USE_SMOOTHNORMAL_ON
             // 引入描边渲染逻辑头文件
             #include "DetailedShader/OutLineShader.hlsl"
 

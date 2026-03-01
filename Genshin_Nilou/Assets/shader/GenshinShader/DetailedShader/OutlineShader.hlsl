@@ -8,6 +8,7 @@
 struct CharOutlineAttributes{
     float4 positionOS:POSITION;
     float3 normalOS:NORMAL;
+    float2 smoothNormal:TEXCOORD7;
     float2 uv1:TEXCOORD0;
     float2 uv2:TEXCOORD1;
     float4 tangentOS:TANGENT;
@@ -24,7 +25,7 @@ struct CharOutlineVaryings{
     real fogFactor:TEXCOORD3;
 };
 
-float3 GetSmoothNormalWS(CharOutlineAttributes input){
+float3 GetSmoothNormalWS(CharOutlineAttributes input,VertexNormalInputs vertexNormalInput){
     float3 smoothNormalOS=input.normalOS;
     //允许在编译时选择不同的法线来源
     #ifdef _OUTLINENORMALCHANNEL_NORMAL
@@ -39,6 +40,17 @@ float3 GetSmoothNormalWS(CharOutlineAttributes input){
         float3 bitangentOS=normalize(cross(normalOS,tangentOS)*(input.tangentOS.w*GetOddNegativeScale()));
         float3 smoothNormalTS=UnpackNormalOctQuadEncode(input.packSmoothNormal);//八面体法线编码
         smoothNormalOS=mul(smoothNormalTS,float3x3(tangentOS,bitangentOS,normalOS));//TBN矩阵变换将切线空间中存储的法线，变换回物体空间。
+    
+    #endif
+    #if _OUTLINE_USE_SMOOTHNORMAL_ON
+        float3 smoothNormal = DecodeNormalOct(input.smoothNormal); // 解码UV7的2D法线
+        float3 tangentWS=vertexNormalInput.tangentWS;
+        float3 normalWS=vertexNormalInput.normalWS;
+        float3 bitangentWS=vertexNormalInput.bitangentWS;
+
+        float3x3 tangentToWorld=half3x3(tangentWS.xyz,bitangentWS.xyz,normalWS.xyz);
+        float3 smoothNormalWS=NormalizeNormalPerPixel(TransformTangentToWorld(smoothNormal,tangentToWorld));
+        return smoothNormalWS;
     #endif
 
     return TransformObjectToWorldNormal(smoothNormalOS);
@@ -97,7 +109,7 @@ CharOutlineVaryings BackFaceOutlineVertex(CharOutlineAttributes input){
     VertexNormalInputs vertexNormalInput=GetVertexNormalInputs(input.normalOS);
 
     //平滑法线计算
-    float3 smoothNormalWS=GetSmoothNormalWS(input);
+    float3 smoothNormalWS=GetSmoothNormalWS(input,vertexNormalInput);
     //轮廓位置计算
     float4 positionCS=GetOutlinePosition(vertexPositionInput,smoothNormalWS,input.color);
 
