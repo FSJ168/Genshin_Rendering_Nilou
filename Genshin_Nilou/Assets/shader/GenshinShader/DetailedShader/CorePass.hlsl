@@ -4,8 +4,9 @@
 #include "DetailedShader/InputShader.hlsl"
 #include "DetailedShader/SpecularHelper.hlsl"
 #include "DetailedShader/Utils.hlsl"
+#include "Packages/com.unity.render-pipelines.core/Runtime/Utilities/Blit.hlsl"
 
-struct Attributes{
+struct CoreAttributes{
     float4 positionOS:POSITION;
     float3 normalOS:NORMAL;
     float4 tangentOS:TANGENT;
@@ -15,25 +16,28 @@ struct Attributes{
 
 };
 
-struct Varyings{
+struct CoreVaryings{
     float4 positionCS:SV_POSITION;
     float3 positionWS:TEXCOORD0;
     float3 normalWS:TEXCOORD1;
     float4 uv:TEXCOORD2;
     float3 tangentWS:TEXCOORD3;
     float3 bitangentWS:TEXCOORD4;
-    float3 SH:TEXCOORD5;
+    float4 SH_Angle:TEXCOORD5;
     real fogFactor:TEXCOORD6;
     float4 vertexColor:COLOR;
 };
 
-Varyings GenshinStyleVertex(Attributes input){
-    Varyings output=(Varyings)0;
+CoreVaryings GenshinStyleVertex(CoreAttributes input){
+    CoreVaryings output=(CoreVaryings)0;
 
     //获取顶点位置和法线输入
     VertexPositionInputs vertexPositionInputs=GetVertexPositionInputs(input.positionOS.xyz);
     VertexNormalInputs vertexNormalInputs=GetVertexNormalInputs(input.normalOS.xyz,input.tangentOS);
 
+    float3 objToCameraWS=normalize(_WorldSpaceCameraPos.xyz-_ObjectCenterWS.xyz);
+    float anglerad=acos(dot(objToCameraWS,float3(0,1,0)));
+    output.SH_Angle.a=anglerad/3.141592653;
     //填充世界空间和裁剪空间数据
     output.positionWS=vertexPositionInputs.positionWS;
     output.positionCS=vertexPositionInputs.positionCS;
@@ -45,7 +49,7 @@ Varyings GenshinStyleVertex(Attributes input){
 
     //球谐函数采样（间接光照）
     //球谐函数将环境光照编码为9个系数 (L0-L8)，运行时只需：color = SH × normal           
-    output.SH=SampleSH(lerp(vertexNormalInputs.normalWS,float3(0,0,0),_IndirectLightFlattenNormal));//_INdirectLightFlattenNormal值越大法线越扁平
+    output.SH_Angle.rgb=SampleSH(lerp(vertexNormalInputs.normalWS,float3(0,0,0),_IndirectLightFlattenNormal));//_INdirectLightFlattenNormal值越大法线越扁平
 
 
     //雾效计算
@@ -54,7 +58,7 @@ Varyings GenshinStyleVertex(Attributes input){
     return output;
 }
 
-half4 GenshinStyleFragment(Varyings input,FRONT_FACE_TYPE isFrontFace:FRONT_FACE_SEMANTIC):SV_Target{
+half4 GenshinStyleFragment(CoreVaryings input,FRONT_FACE_TYPE isFrontFace:FRONT_FACE_SEMANTIC):SV_Target{
     //双面渲染设置
     SetupDualFaceRendering(input.normalWS,input.uv,isFrontFace);
 
@@ -77,7 +81,7 @@ half4 GenshinStyleFragment(Varyings input,FRONT_FACE_TYPE isFrontFace:FRONT_FACE
     //主光源方向
     float3 lightDirectionWS=normalize(mainLight.direction.xyz);
     //间接光照计算
-    float3 indirectLightColor=CalculateGI(mainTexCol.rgb,ilmTexCol.g,input.SH.rgb,_IndirectLightIntensity,_IndirectLightUsage);
+    float3 indirectLightColor=CalculateGI(mainTexCol.rgb,ilmTexCol.g,input.SH_Angle.rgb,_IndirectLightIntensity,_IndirectLightUsage);
     //视线方向
     float3 viewDirectionWS=normalize(GetWorldSpaceViewDir(input.positionWS));
     //material Index
@@ -115,6 +119,18 @@ half4 GenshinStyleFragment(Varyings input,FRONT_FACE_TYPE isFrontFace:FRONT_FACE
     #else
         emissionFactor=0;
     #endif
+
+    //Alpha Clip
+        float _angle=input.SH_Angle.a;
+        _AlphaClipThreshold=smoothstep(0.5,0.9,_angle);
+        float uv=input.uv.xy;
+        half4 color=SAMPLE_TEXTURE2D_X_LOD(_BlitTexture,sampler_LinearRepeat,uv,_BlitMipLevel);
+        float2 screenUV=uv*_ScreenParams.xy/_GridPixelSize;
+
+        float grid=SAMPLE_TEXTURE2D(_GridTex,sampler_GridTex,screenUV).a;
+        float _Clip_alpha=saturate(grid*_GridAlphaIntensity);
+        clip(_Clip_alpha-_AlphaClipThreshold);
+
 
     //区分面部和身体的渲染
     #if defined(_RENDERTYPE_BODY)
@@ -228,6 +244,14 @@ half4 GenshinStyleFragment(Varyings input,FRONT_FACE_TYPE isFrontFace:FRONT_FACE
         //Mix Fog
         real fogFactor=InitializeInputDataFog(float4(input.positionWS,1.0),input.fogFactor);
         FinalColor.rgb=MixFog(FinalColor,fogFactor);
+
+        // //Alpha Clip
+        // float uv=input.uv;
+        // float2 screenUV=uv*_ScreenParams.xy/_GridPixelSize;
+
+        // float grid=SAMPLE_TEXTURE2D(_GridTex,sampler_GridTex,screenUV).a;
+        // float _Clip_alpha=saturate(grid*_GridAlphaIntensity);
+        // clip(_Clip_alpha-_AlphaClipThreshold);
 
         return FinalColor;
     

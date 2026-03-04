@@ -4,6 +4,7 @@
 #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
 #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Lighting.hlsl"
 #include"DetailedShader/Utils.hlsl"
+#include "Packages/com.unity.render-pipelines.core/Runtime/Utilities/Blit.hlsl"
 
 struct CharOutlineAttributes{
     float4 positionOS:POSITION;
@@ -152,6 +153,15 @@ half4 BackFaceOutlineFragment(CharOutlineVaryings input,FRONT_FACE_TYPE isFrontF
     //雾效混合
     real fogFactor=InitializeInputDataFog(float4(input.positionWS,1.0),input.fogFactor);
     FinalColor.rgb=MixFog(FinalColor.rgb,fogFactor);
+
+    //Alpha Clip
+    float uv=input.baseUV.xy;
+    half4 color=SAMPLE_TEXTURE2D_X_LOD(_BlitTexture,sampler_LinearRepeat,uv,_BlitMipLevel);
+    float2 screenUV=uv*_ScreenParams.xy/_GridPixelSize;
+
+    float grid=SAMPLE_TEXTURE2D(_GridTex,sampler_GridTex,screenUV).a;
+    float _Clip_alpha=saturate(grid*_GridAlphaIntensity);
+    clip(_Clip_alpha-_AlphaClipThreshold);
 
     return float4(FinalColor.rgb,1.0);
 

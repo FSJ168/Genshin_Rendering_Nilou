@@ -230,6 +230,16 @@ Shader "GenshinToon/MainShader"
         [Enum(UnityEngine.Rendering.BlendMode)] _DstBlendModeAlpha("Core Pass dst blend mode alpha (Default Zero)", Float) = 0
         // 是否写入深度缓冲区（默认开启，透明物体需关闭）
         [Enum(Off, 0, On, 1)] _ZWrite("ZWrite (Default On)", Float) = 1
+        
+        //Dither
+        [Header(Dither)]
+        [KeywordEnum(is_Distance,is_Angle)]_Dither_Mode("Dither Mode(default Distance)",Int)=0
+        _GridTex("Grid Pattern",2D)="white"{}
+        _GridPixelSize("Grid pixel size",Float)=4
+        _GridAlphaIntensity("Grid Alpha Intensity",Float)=2
+        _AlphaClipThreshold("Alpha Clip Threshold",Range(0,2))=0.5
+        _ObjectCenterWS("Object Center WS",Vector)=(0,0,0,1)
+        
 
     }
 
@@ -299,6 +309,8 @@ Shader "GenshinToon/MainShader"
             #pragma shader_feature_local _SPECULAR_ON
             // 着色器特性：边缘光
             #pragma shader_feature_local _RIM_LIGHTING_ON
+
+            #pragma shader_feature _DITHER_MODE_IS_DISTANCE _DITHER_MODE_IS_ANGLE
 
             // 引入核心渲染逻辑头文件（包含顶点/片元着色器实现）
             #include "DetailedShader/CorePass.hlsl"

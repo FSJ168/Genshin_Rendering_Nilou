@@ -3,6 +3,7 @@
 
 #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
 
+
 ///////////////////////////////////////////////////////////////////////////////////////
 // CBUFFER and Uniforms
 // (you should put all uniforms of all passes inside this single UnityPerMaterial CBUFFER! else SRP batching is not possible!)
@@ -27,6 +28,8 @@ TEXTURE2D(_MTMap);
 SAMPLER(sampler_MTMap);
 TEXTURE2D(_MTSpecularRamp);
 SAMPLER(sampler_MTSpecularRamp);
+TEXTURE2D(_GridTex);
+SAMPLER(sampler_GridTex);
 
 #if defined(_USESMOOTHNORMAL_NORMALTEXTURE)
 TEXTURE2D(_SmoothNormalTex);
@@ -139,6 +142,11 @@ float _OutlineZOffset;
 float4 _ScreenOffset;
 
 float _DebugValue01;
+
+float _GridPixelSize;
+float _GridAlphaIntensity;
+float _AlphaClipThreshold;
+Vector _ObjectCenterWS;
 
 CBUFFER_END
 
